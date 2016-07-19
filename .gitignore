@@ -22,6 +22,31 @@ bld/
 [Oo]bj/
 [Ll]og/
 
+# globs
+Makefile.in
+*.DS_Store
+*.sln.cache
+*.suo
+*.cache
+*.pidb
+*.userprefs
+*.usertasks
+config.log
+config.make
+config.status
+aclocal.m4
+install-sh
+autom4te.cache/
+*.user
+*.tar.gz
+tarballs/
+test-results/
+Thumbs.db
+
+#Mac bundle stuff
+*.dmg
+*.app
+
 # Visual Studio 2015 cache/options directory
 .vs/
 # Uncomment if you have tasks that create the project's static files in wwwroot
@@ -250,3 +275,7 @@ paket-files/
 # JetBrains Rider
 .idea/
 *.sln.iml
+
+# StyleCop
+*.StyleCop
+StyleCop.Cache
