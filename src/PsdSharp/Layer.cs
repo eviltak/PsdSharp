@@ -163,6 +163,9 @@ namespace PsdSharp
 		/// <term>idiv</term><description>color burn</description>
 		/// </list>
 		/// </remarks>
+
+		// TODO: Use an enum instead.
+		// TODO: Why is the setter not assigning anything? Circumvent check, look at above TODO.
 		public string BlendModeKey
 		{
 			get { return m_blendModeKey; }

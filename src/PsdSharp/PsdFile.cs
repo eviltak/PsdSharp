@@ -77,6 +77,8 @@ namespace PsdSharp
 
 		/// <summary>The number of bits per channel. 
 		/// Supported values are 1, 8, and 16.</summary>
+
+		// TODO: Use enum instead
 		public int Depth
 		{
 			get { return m_depth; }
