@@ -31,7 +31,6 @@
 
 /////////////////////////////////////////////////////////////////////////////////
 
-using System;
 using System.IO;
 
 namespace PsdSharp
@@ -41,60 +40,55 @@ namespace PsdSharp
     {
         public BinaryReverseReader(Stream stream)
             : base(stream)
-        { }
+        {
+        }
 
         public override int ReadInt32()
         {
-            int val = base.ReadInt32();
-            Util.SwapBytes(val);
-            return val;
+            int value = base.ReadInt32();
+            return Util.SwapBytes(value);
         }
 
         public override long ReadInt64()
         {
-            long val = base.ReadInt64();
-            Util.SwapBytes(val);
-            return val;
+            long value = base.ReadInt64();
+            return Util.SwapBytes(value);
         }
 
         public override short ReadInt16()
         {
-            short val = base.ReadInt16();
-            Util.SwapBytes(val);
-            return val;
+            short value = base.ReadInt16();
+            return Util.SwapBytes(value);
         }
 
         public string ReadPascalString()
         {
-            byte stringLength = base.ReadByte();
+            byte stringLength = ReadByte();
 
-            char[] c = base.ReadChars(stringLength);
+            char[] c = ReadChars(stringLength);
 
-            if ((stringLength % 2) == 0)
-                base.ReadByte();
+            if (stringLength % 2 == 0)
+                ReadByte();
 
             return new string(c);
         }
 
         public override uint ReadUInt32()
         {
-            uint val = base.ReadUInt32();
-            Util.SwapBytes(val);
-            return val;
+            uint value = base.ReadUInt32();
+            return Util.SwapBytes(value);
         }
 
         public override ulong ReadUInt64()
         {
-            ulong val = base.ReadUInt64();
-            Util.SwapBytes(val);
-            return val;
+            ulong value = base.ReadUInt64();
+            return Util.SwapBytes(value);
         }
 
         public override ushort ReadUInt16()
         {
-            ushort val = base.ReadUInt16();
-            Util.SwapBytes(val);
-            return val;
+            ushort value = base.ReadUInt16();
+            return Util.SwapBytes(value);
         }
     }
 }

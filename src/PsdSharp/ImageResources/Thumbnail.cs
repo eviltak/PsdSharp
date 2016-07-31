@@ -31,8 +31,6 @@
 
 /////////////////////////////////////////////////////////////////////////////////
 
-using System.IO;
-
 namespace PsdSharp
 {
     public class Thumbnail : ImageResource
@@ -59,4 +57,3 @@ namespace PsdSharp
         }
     }
 }
-

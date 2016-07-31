@@ -32,51 +32,47 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using System;
-using System.IO;
 
 namespace PsdSharp
 {
+    internal class LengthWriter : IDisposable
+    {
+        private BinaryReverseWriter writer;
+        private long lengthPosition;
+        private long startPosition;
 
-	class LengthWriter : IDisposable
-	{
+        public LengthWriter(BinaryReverseWriter writer)
+        {
+            this.writer = writer;
 
-		BinaryReverseWriter m_writer;
-		long m_lengthPosition = long.MinValue;
-		long m_startPosition;
+            // we will write the correct length later, so remember
+            // the position
+            lengthPosition = writer.BaseStream.Position;
+            writer.Write(0xFEEDFEED);
 
-		public LengthWriter(BinaryReverseWriter writer)
-		{
-			m_writer = writer;
+            // remember the start  position for calculation Image
+            // resources length
+            startPosition = writer.BaseStream.Position;
+        }
 
-			// we will write the correct length later, so remember
-			// the position
-			m_lengthPosition = m_writer.BaseStream.Position;
-			m_writer.Write(0xFEEDFEED);
+        public void Dispose()
+        {
+            Write();
+        }
 
-			// remember the start  position for calculation Image
-			// resources length
-			m_startPosition = m_writer.BaseStream.Position;
-		}
+        public void Write()
+        {
+            if (lengthPosition != long.MinValue)
+            {
+                long endPosition = writer.BaseStream.Position;
 
-		public void Dispose()
-		{
-			Write();
-		}
+                writer.BaseStream.Position = lengthPosition;
+                long length = endPosition - startPosition;
+                writer.Write((uint) length);
+                writer.BaseStream.Position = endPosition;
 
-		public void Write()
-		{
-			if (m_lengthPosition != long.MinValue)
-			{
-				long endPosition = m_writer.BaseStream.Position;
-
-				m_writer.BaseStream.Position = m_lengthPosition;
-				long length = endPosition - m_startPosition;
-				m_writer.Write((uint)length);
-				m_writer.BaseStream.Position = endPosition;
-
-				m_lengthPosition = long.MinValue;
-			}
-		}
-
-	}
+                lengthPosition = long.MinValue;
+            }
+        }
+    }
 }

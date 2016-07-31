@@ -31,7 +31,7 @@
 
 /////////////////////////////////////////////////////////////////////////////////
 
-using System;
+using System.IO;
 
 namespace PsdSharp
 {
@@ -96,7 +96,7 @@ namespace PsdSharp
 
         protected override void StoreData()
         {
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
+            MemoryStream stream = new MemoryStream();
             BinaryReverseWriter writer = new BinaryReverseWriter(stream);
 
             writer.Write(HorizontalResolution);
@@ -112,7 +112,5 @@ namespace PsdSharp
 
             Data = stream.ToArray();
         }
-
     }
 }
-

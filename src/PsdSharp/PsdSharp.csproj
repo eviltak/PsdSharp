@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -37,7 +37,7 @@
     <Compile Include="ImageResources\ResolutionInfo.cs" />
     <Compile Include="ImageResources\Thumbnail.cs" />
     <Compile Include="PsdFile.cs" />
-    <Compile Include="RleHelper.cs" />
+    <Compile Include="RleUtility.cs" />
     <Compile Include="Util.cs" />
     <Compile Include="ImageResources\ImageResource.cs" />
     <Compile Include="Rectangle.cs" />

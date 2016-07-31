@@ -31,12 +31,10 @@
 
 /////////////////////////////////////////////////////////////////////////////////
 
-using System;
 using System.IO;
 
 namespace PsdSharp
 {
-
     /// <summary>Writes primitive data types as binary values in in big-endian format</summary>
     public class BinaryReverseWriter : BinaryWriter
     {
@@ -44,11 +42,12 @@ namespace PsdSharp
 
         public BinaryReverseWriter(Stream stream)
             : base(stream)
-        { }
+        {
+        }
 
         public override void Write(short value)
         {
-            Util.SwapBytes(value);
+            value = Util.SwapBytes(value);
             base.Write(value);
 
             if (AutoFlush)
@@ -57,7 +56,7 @@ namespace PsdSharp
 
         public override void Write(int value)
         {
-            Util.SwapBytes(value);
+            value = Util.SwapBytes(value);
             base.Write(value);
 
             if (AutoFlush)
@@ -66,7 +65,7 @@ namespace PsdSharp
 
         public override void Write(long value)
         {
-            Util.SwapBytes(value);
+            value = Util.SwapBytes(value);
             base.Write(value);
 
             if (AutoFlush)
@@ -75,7 +74,7 @@ namespace PsdSharp
 
         public override void Write(ushort value)
         {
-            Util.SwapBytes(value);
+            value = Util.SwapBytes(value);
             base.Write(value);
 
             if (AutoFlush)
@@ -84,7 +83,7 @@ namespace PsdSharp
 
         public override void Write(uint value)
         {
-            Util.SwapBytes(value);
+            value = Util.SwapBytes(value);
             base.Write(value);
 
             if (AutoFlush)
@@ -93,7 +92,7 @@ namespace PsdSharp
 
         public override void Write(ulong value)
         {
-            Util.SwapBytes(value);
+            value = Util.SwapBytes(value);
             base.Write(value);
 
             if (AutoFlush)
@@ -113,15 +112,14 @@ namespace PsdSharp
 
             int realLength = c.Length + 1;
 
-            if ((realLength % 2) == 0)
+            if (realLength % 2 == 0)
                 return;
 
-            for (int i = 0; i < (2 - (realLength % 2)); i++)
+            for (int i = 0; i < 2 - realLength % 2; i++)
                 base.Write((byte) 0);
 
             if (AutoFlush)
                 Flush();
         }
     }
-
 }

@@ -22,6 +22,7 @@
 //
 
 /////////////////////////////////////////////////////////////////////////////////
+
 using System.Collections.Generic;
 using System.IO;
 
@@ -30,8 +31,7 @@ namespace PsdSharp
     /// <summary>The names of the alpha channels</summary>
     public class AlphaChannels : ImageResource
     {
-
-        private List<string> m_channelNames = new List<string>();
+        private List<string> channelNames = new List<string>();
 
 
         public AlphaChannels(ImageResource imgRes)
@@ -39,35 +39,32 @@ namespace PsdSharp
         {
             BinaryReverseReader reader = imgRes.DataReader;
             // the names are pascal strings without padding!!!
-            while ((reader.BaseStream.Length - reader.BaseStream.Position) > 0)
+            while (reader.BaseStream.Length - reader.BaseStream.Position > 0)
             {
                 byte stringLength = reader.ReadByte();
                 string s = new string(reader.ReadChars(stringLength));
                 if (s.Length > 0)
-                    m_channelNames.Add(s);
+                    channelNames.Add(s);
             }
             reader.Close();
         }
 
         public AlphaChannels()
             : base((short) ResourceIDs.AlphaChannelNames)
-        { }
-
-
-        public IList<string> ChannelNames
         {
-            get { return m_channelNames; }
         }
 
+
+        public IList<string> ChannelNames => channelNames;
 
 
         protected override void StoreData()
         {
-            using (var stream = new MemoryStream())
+            using (MemoryStream stream = new MemoryStream())
             {
-                using (var writer = new BinaryReverseWriter(stream))
+                using (BinaryReverseWriter writer = new BinaryReverseWriter(stream))
                 {
-                    foreach (string name in m_channelNames)
+                    foreach (string name in channelNames)
                     {
                         writer.Write((byte) name.Length);
                         writer.Write(name.ToCharArray());
@@ -77,6 +74,5 @@ namespace PsdSharp
                 }
             }
         }
-
     }
 }

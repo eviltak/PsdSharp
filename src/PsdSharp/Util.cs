@@ -1,7 +1,42 @@
-﻿namespace PsdSharp
+﻿using System;
+
+namespace PsdSharp
 {
     public static class Util
     {
+        /// <summary>
+        /// Converts the blend mode key string into a <see cref="Layer.BlendModes"/> object for storage.
+        /// </summary>
+        /// <param name="s">The blend mode key string.</param>
+        /// <returns>The converted <see cref="Layer.BlendModes"/> object.</returns>
+        public static Layer.BlendModes ToBlendModeEnum(string s)
+        {
+            s = s.Trim();
+
+            s = char.ToUpper(s[0]) + s.Substring(1);
+
+            Layer.BlendModes result;
+            Enum.TryParse(s, out result);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Converts the <see cref="Layer.BlendModes"/> enum object into a writable 4 character long key string.
+        /// </summary>
+        /// <param name="blendMode">The <see cref="Layer.BlendModes"/> object.</param>
+        /// <returns>The converted key string.</returns>
+        public static string ToBlendModeString(this Layer.BlendModes blendMode)
+        {
+            string result = blendMode.ToString();
+
+            result = result.PadRight(4);
+
+            result = char.ToLower(result[0]) + result.Substring(1);
+
+            return result;
+        }
+
         // The following SwapBytes methods have been taken from System.Drawing.PSD by Darren Horrocks.
         // https://github.com/bizzehdee/System.Drawing.PSD/blob/master/Utilities.cs
 
@@ -44,4 +79,3 @@
         }
     }
 }
-
