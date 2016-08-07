@@ -36,91 +36,220 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace PsdSharp
 {
     public class Layer
     {
-        public enum BlendModes
-        {
-            /// <summary>
-            /// Normal
-            /// </summary>
-            Norm,
+        #region Fields
 
-            /// <summary>
-            /// Darken
-            /// </summary>
-            Dark,
-            Lite,
-            Hue,
-            Sat,
-            Colr,
-            Lum,
-            Mul,
-            Scrn,
-            Diss,
-            Over,
-            HLit,
-            SLit,
-            Diff,
-            Smud,
-            Div,
-            Idiv
+        BitVector32 m_flags = new BitVector32();
+
+        private BlendingRanges m_blendingRangesData;
+
+        private bool m_clipping;
+
+        private byte m_opacity;
+
+        private static int m_protectTransBit = BitVector32.CreateMask();
+
+        private static int m_visibleBit = BitVector32.CreateMask(m_protectTransBit);
+
+        private List<AdjusmentLayerInfo> m_adjustmentInfo = new List<AdjusmentLayerInfo>();
+
+        /// <summary>Channel information.</summary>
+        private List<Channel> m_channels = new List<Channel>();
+
+        private Mask m_maskData;
+
+        private PsdFile m_psdFile;
+
+        private Rectangle m_rect = Rectangle.Empty;
+
+        private SortedList<short, Channel> m_sortedChannels = new SortedList<short, Channel>();
+
+        private string m_blendModeKey = "norm";
+
+        private string m_name;
+
+        #endregion Fields
+
+        #region Constructors
+
+        public Layer(BinaryReverseReader reader, PsdFile psdFile)
+        {
+            Debug.WriteLine("Layer started at " + reader.BaseStream.Position.ToString());
+
+            m_psdFile = psdFile;
+            m_rect = new Rectangle();
+            m_rect.Y = reader.ReadInt32();
+            m_rect.X = reader.ReadInt32();
+            m_rect.Height = reader.ReadInt32() - m_rect.Y;
+            m_rect.Width = reader.ReadInt32() - m_rect.X;
+
+            //-----------------------------------------------------------------------
+
+            int numberOfChannels = reader.ReadUInt16();
+            this.m_channels.Clear();
+            for (int channel = 0; channel < numberOfChannels; channel++)
+            {
+                Channel ch = new Channel(reader, this);
+                m_channels.Add(ch);
+                m_sortedChannels.Add(ch.ID, ch);
+            }
+
+            //-----------------------------------------------------------------------
+
+            string signature = new string(reader.ReadChars(4));
+            if (signature != "8BIM")
+                throw (new IOException("Layer Channelheader error!"));
+
+            m_blendModeKey = new string(reader.ReadChars(4));
+            m_opacity = reader.ReadByte();
+
+            m_clipping = reader.ReadByte() > 0;
+
+            //-----------------------------------------------------------------------
+
+            byte flags = reader.ReadByte();
+            m_flags = new BitVector32(flags);
+
+            //-----------------------------------------------------------------------
+
+            reader.ReadByte(); //padding
+
+            //-----------------------------------------------------------------------
+
+            Debug.WriteLine("Layer extraDataSize started at " + reader.BaseStream.Position.ToString());
+
+            // this is the total size of the MaskData, the BlendingRangesData, the
+            // Name and the AdjustmenLayerInfo
+            uint extraDataSize = reader.ReadUInt32();
+
+            // remember the start position for calculation of the
+            // AdjustmenLayerInfo size
+            long extraDataStartPosition = reader.BaseStream.Position;
+
+            m_maskData = new Mask(reader, this);
+            m_blendingRangesData = new BlendingRanges(reader, this);
+
+            //-----------------------------------------------------------------------
+
+            long namePosition = reader.BaseStream.Position;
+
+            m_name = reader.ReadPascalString();
+
+            int paddingBytes = (int)((reader.BaseStream.Position - namePosition) % 4);
+
+            Debug.Print("Layer {0} padding bytes after name", paddingBytes);
+            reader.ReadBytes(paddingBytes);
+
+            //-----------------------------------------------------------------------
+
+            m_adjustmentInfo.Clear();
+
+            long adjustmenLayerEndPos = extraDataStartPosition + extraDataSize;
+            while (reader.BaseStream.Position < adjustmenLayerEndPos)
+            {
+                try
+                {
+                    m_adjustmentInfo.Add(new AdjusmentLayerInfo(reader, this));
+                }
+                catch
+                {
+                    reader.BaseStream.Position = adjustmenLayerEndPos;
+                }
+            }
+
+            //-----------------------------------------------------------------------
+            // make shure we are not on a wrong offset, so set the stream position
+            // manually
+            reader.BaseStream.Position = adjustmenLayerEndPos;
         }
 
-        private BitVector32 flags;
+        public Layer(PsdFile psdFile)
+        {
+            m_psdFile = psdFile;
+            m_psdFile.Layers.Add(this);
+        }
 
-        private static int protectTransBit = BitVector32.CreateMask();
+        #endregion Constructors
 
-        private static int visibleBit = BitVector32.CreateMask(protectTransBit);
-
-        private Rectangle rect = Rectangle.Empty;
-
-        private string blendModeKey = "norm";
+        #region Properties
 
         /// <summary>false = base, true = non–base</summary>
-        public bool Clipping { get; set; }
+        public bool Clipping
+        {
+            get { return m_clipping; }
+            set { m_clipping = value; }
+        }
 
         /// <summary>Protect the transparency</summary>
         public bool ProtectTrans
         {
-            get { return flags[protectTransBit]; }
-            set { flags[protectTransBit] = value; }
+            get { return m_flags[m_protectTransBit]; }
+            set { m_flags[m_protectTransBit] = value; }
         }
 
         /// <summary>If true, the layer is visible.</summary>
         public bool Visible
         {
-            get { return !flags[visibleBit]; }
-            set { flags[visibleBit] = !value; }
+            get { return !m_flags[m_visibleBit]; }
+            set { m_flags[m_visibleBit] = !value; }
         }
 
         /// <summary>0 = transparent ... 255 = opaque</summary>
-        public byte Opacity { get; set; }
+        public byte Opacity
+        {
+            get { return m_opacity; }
+            set { m_opacity = value; }
+        }
 
-        public BlendingRanges BlendingRangesData { get; set; }
+        public Layer.BlendingRanges BlendingRangesData
+        {
+            get { return m_blendingRangesData; }
+            set { m_blendingRangesData = value; }
+        }
 
-        public Mask MaskData { get; set; }
+        public Layer.Mask MaskData
+        {
+            get { return m_maskData; }
+            set { m_maskData = value; }
+        }
 
-        public List<Channel> Channels { get; } = new List<Channel>();
+        public IList<Channel> Channels
+        {
+            get { return m_channels; }
+        }
 
-        internal List<AdjusmentLayerInfo> AdjustmentInfo { get; set; } = new List<AdjusmentLayerInfo>();
+        internal IList<Layer.AdjusmentLayerInfo> AdjustmentInfo
+        {
+            get { return m_adjustmentInfo; }
+            set { m_adjustmentInfo = value.ToList(); }
+        }
 
-        internal PsdFile PsdFile { get; }
+        internal PsdFile PsdFile
+        {
+            get { return m_psdFile; }
+        }
 
         /// <summary>The rectangle containing the contents of the layer.</summary>
         public Rectangle Rect
         {
-            get { return rect; }
-            set { rect = value; }
+            get { return m_rect; }
+            set { m_rect = value; }
         }
 
-        public SortedList<short, Channel> SortedChannels { get; } = new SortedList<short, Channel>();
+        public SortedList<short, Channel> SortedChannels
+        {
+            get { return m_sortedChannels; }
+        }
 
-        /// <summary>The blend mode key for the layer.</summary>
+        /// <summary>The blend mode key for the layer</summary>
         /// <remarks>
         /// <list type="table">
+        /// </item>
         /// <term>norm</term><description>normal</description>
         /// <term>dark</term><description>darken</description>
         /// <term>lite</term><description>lighten</description>
@@ -135,17 +264,14 @@ namespace PsdSharp
         /// <term>hLit</term><description>hard light</description>
         /// <term>sLit</term><description>soft light</description>
         /// <term>diff</term><description>difference</description>
-        /// <term>smud</term><description>exclusion</description>
+        /// <term>smud</term><description>exlusion</description>
         /// <term>div </term><description>color dodge</description>
         /// <term>idiv</term><description>color burn</description>
         /// </list>
         /// </remarks>
-
-        // TODO: Use an enum instead.
-        // TODO: Why is the setter not assigning anything? Circumvent check, look at above TODO.
         public string BlendModeKey
         {
-            get { return blendModeKey; }
+            get { return m_blendModeKey; }
             set
             {
                 if (value.Length != 4) throw new ArgumentException("Key length must be 4");
@@ -153,185 +279,103 @@ namespace PsdSharp
         }
 
         /// <summary>The descriptive layer name</summary>
-        public string Name { get; set; }
-
-
-        public Layer(BinaryReverseReader reader, PsdFile psdFile)
+        public string Name
         {
-            Debug.WriteLine("Layer started at " + reader.BaseStream.Position);
-
-            PsdFile = psdFile;
-            rect = new Rectangle();
-            rect.Y = reader.ReadInt32();
-            rect.X = reader.ReadInt32();
-            rect.Height = reader.ReadInt32() - rect.Y;
-            rect.Width = reader.ReadInt32() - rect.X;
-
-            //-----------------------------------------------------------------------
-
-            int numberOfChannels = reader.ReadUInt16();
-            Channels.Clear();
-
-            for (int channel = 0; channel < numberOfChannels; channel++)
-            {
-                Channel ch = new Channel(reader, this);
-                Channels.Add(ch);
-                SortedChannels.Add(ch.Id, ch);
-            }
-
-            //-----------------------------------------------------------------------
-
-            string signature = new string(reader.ReadChars(4));
-            if (signature != "8BIM")
-                throw new IOException("Layer Channelheader error!");
-
-            blendModeKey = new string(reader.ReadChars(4));
-            Opacity = reader.ReadByte();
-
-            Clipping = reader.ReadByte() > 0;
-
-            //-----------------------------------------------------------------------
-
-            byte flagsByte = reader.ReadByte();
-            flags = new BitVector32(flagsByte);
-
-            //-----------------------------------------------------------------------
-
-            reader.ReadByte(); //padding
-
-            //-----------------------------------------------------------------------
-
-            Debug.WriteLine("Layer extraDataSize started at " + reader.BaseStream.Position);
-
-            // this is the total size of the MaskData, the BlendingRangesData, the
-            // Name and the AdjustmenLayerInfo
-            uint extraDataSize = reader.ReadUInt32();
-
-            // remember the start position for calculation of the
-            // AdjustmenLayerInfo size
-            long extraDataStartPosition = reader.BaseStream.Position;
-
-            MaskData = new Mask(reader, this);
-            BlendingRangesData = new BlendingRanges(reader, this);
-
-            //-----------------------------------------------------------------------
-
-            long namePosition = reader.BaseStream.Position;
-
-            Name = reader.ReadPascalString();
-
-            int paddingBytes = (int) ((reader.BaseStream.Position - namePosition) % 4);
-
-            Debug.Print("Layer {0} padding bytes after name", paddingBytes);
-            reader.ReadBytes(paddingBytes);
-
-            //-----------------------------------------------------------------------
-
-            AdjustmentInfo.Clear();
-
-            long adjustmenLayerEndPos = extraDataStartPosition + extraDataSize;
-            while (reader.BaseStream.Position < adjustmenLayerEndPos)
-            {
-                try
-                {
-                    AdjustmentInfo.Add(new AdjusmentLayerInfo(reader, this));
-                }
-                catch
-                {
-                    reader.BaseStream.Position = adjustmenLayerEndPos;
-                }
-            }
-
-            //-----------------------------------------------------------------------
-            // make sure we are not on a wrong offset, so set the stream position
-            // manually
-            reader.BaseStream.Position = adjustmenLayerEndPos;
+            get { return m_name; }
+            set { m_name = value; }
         }
 
-        public Layer(PsdFile psdFile)
-        {
-            PsdFile = psdFile;
-            PsdFile.Layers.Add(this);
-        }
+        #endregion Properties
 
+        #region Methods
+
+        #region Public Methods
 
         public void Save(BinaryReverseWriter writer)
         {
-            Debug.WriteLine("Layer Save started at " + writer.BaseStream.Position);
+            Debug.WriteLine("Layer Save started at " + writer.BaseStream.Position.ToString());
 
-            writer.Write(rect.Top);
-            writer.Write(rect.Left);
-            writer.Write(rect.Bottom);
-            writer.Write(rect.Right);
+            writer.Write(m_rect.Top);
+            writer.Write(m_rect.Left);
+            writer.Write(m_rect.Bottom);
+            writer.Write(m_rect.Right);
 
             //-----------------------------------------------------------------------
 
-            writer.Write((short) Channels.Count);
-            foreach (Channel ch in Channels)
+            writer.Write((short)m_channels.Count);
+            foreach (Channel ch in m_channels)
                 ch.Save(writer);
 
             //-----------------------------------------------------------------------
 
             string signature = "8BIM";
             writer.Write(signature.ToCharArray());
-            writer.Write(blendModeKey.ToCharArray());
-            writer.Write(Opacity);
-            writer.Write((byte) (Clipping ? 1 : 0));
+            writer.Write(m_blendModeKey.ToCharArray());
+            writer.Write(m_opacity);
+            writer.Write((byte)(m_clipping ? 1 : 0));
 
-            writer.Write((byte) flags.Data);
+            writer.Write((byte)m_flags.Data);
 
             //-----------------------------------------------------------------------
 
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
 
             //-----------------------------------------------------------------------
 
             using (new LengthWriter(writer))
             {
-                MaskData.Save(writer);
-                BlendingRangesData.Save(writer);
+                m_maskData.Save(writer);
+                m_blendingRangesData.Save(writer);
 
                 long namePosition = writer.BaseStream.Position;
 
-                writer.WritePascalString(Name);
+                writer.WritePascalString(m_name);
 
-                int paddingBytes = (int) ((writer.BaseStream.Position - namePosition) % 4);
+                int paddingBytes = (int)((writer.BaseStream.Position - namePosition) % 4);
                 Debug.Print("Layer {0} write padding bytes after name", paddingBytes);
 
                 for (int i = 0; i < paddingBytes; i++)
-                    writer.Write((byte) 0);
+                    writer.Write((byte)0);
 
-                foreach (AdjusmentLayerInfo info in AdjustmentInfo)
+                foreach (AdjusmentLayerInfo info in m_adjustmentInfo)
                 {
                     info.Save(writer);
                 }
             }
         }
 
+        #endregion Public Methods
+
+        #endregion Methods
+
+        #region Nested Classes
 
         internal class AdjusmentLayerInfo
         {
-            public BinaryReverseReader DataReader => new BinaryReverseReader(new MemoryStream(Data));
+            #region Fields
 
-            public byte[] Data { get; set; }
+            private byte[] m_data;
 
-            /// <summary>The layer to which this info belongs</summary>
-            internal Layer Layer { get; private set; }
+            private Layer m_layer;
 
-            public string Key { get; set; }
+            private string m_key;
+
+            #endregion Fields
+
+            #region Constructors
 
             public AdjusmentLayerInfo(string key, Layer layer)
             {
-                Key = key;
-                Layer = layer;
-                Layer.AdjustmentInfo.Add(this);
+                m_key = key;
+                m_layer = layer;
+                m_layer.AdjustmentInfo.Add(this);
             }
 
             public AdjusmentLayerInfo(BinaryReverseReader reader, Layer layer)
             {
-                Debug.WriteLine("AdjusmentLayerInfo started at " + reader.BaseStream.Position);
+                Debug.WriteLine("AdjusmentLayerInfo started at " + reader.BaseStream.Position.ToString());
 
-                Layer = layer;
+                m_layer = layer;
 
                 string signature = new string(reader.ReadChars(4));
                 if (signature != "8BIM")
@@ -339,161 +383,277 @@ namespace PsdSharp
                     throw new IOException("Could not read an image resource");
                 }
 
-                Key = new string(reader.ReadChars(4));
+                m_key = new string(reader.ReadChars(4));
 
                 uint dataLength = reader.ReadUInt32();
-                Data = reader.ReadBytes((int) dataLength);
+                m_data = reader.ReadBytes((int)dataLength);
             }
+
+            #endregion Constructors
+
+            #region Properties
+
+            public BinaryReverseReader DataReader
+            {
+                get { return new BinaryReverseReader(new System.IO.MemoryStream(this.m_data)); }
+            }
+
+            public byte[] Data
+            {
+                get { return m_data; }
+                set { m_data = value; }
+            }
+
+            /// <summary>The layer to which this info belongs</summary>
+            internal Layer Layer
+            {
+                get { return m_layer; }
+            }
+
+            public string Key
+            {
+                get { return m_key; }
+                set { m_key = value; }
+            }
+
+            #endregion Properties
+
+            #region Methods
+
+            #region Public Methods
 
             public void Save(BinaryReverseWriter writer)
             {
-                Debug.WriteLine("AdjusmentLayerInfo Save started at " + writer.BaseStream.Position);
+                Debug.WriteLine("AdjusmentLayerInfo Save started at " + writer.BaseStream.Position.ToString());
 
                 string signature = "8BIM";
 
                 writer.Write(signature.ToCharArray());
-                writer.Write(Key.ToCharArray());
-                writer.Write((uint) Data.Length);
-                writer.Write(Data);
+                writer.Write(m_key.ToCharArray());
+                writer.Write((uint)m_data.Length);
+                writer.Write(m_data);
             }
+
+            #endregion Public Methods
+
+            #endregion Methods
         }
 
         public class BlendingRanges
         {
+            #region Fields
+
+            private byte[] m_data = new byte[0];
+
+            private Layer m_layer;
+
+            #endregion Fields
+
+            #region Constructors
+
             public BlendingRanges(BinaryReverseReader reader, Layer layer)
             {
-                Debug.WriteLine("BlendingRanges started at " + reader.BaseStream.Position);
+                Debug.WriteLine("BlendingRanges started at " + reader.BaseStream.Position.ToString());
 
-                Layer = layer;
+                m_layer = layer;
                 int dataLength = reader.ReadInt32();
                 if (dataLength <= 0)
                     return;
 
-                Data = reader.ReadBytes(dataLength);
+                m_data = reader.ReadBytes(dataLength);
             }
 
             public BlendingRanges(Layer layer)
             {
-                Layer = layer;
-                Layer.BlendingRangesData = this;
+                m_layer = layer;
+                m_layer.BlendingRangesData = this;
             }
 
-            public byte[] Data { get; set; } = new byte[0];
+            #endregion Constructors
 
-            /// <summary>The layer to which this blending range belongs.</summary>
-            public Layer Layer { get; private set; }
+            #region Properties
+
+            public byte[] Data
+            {
+                get { return m_data; }
+                set { m_data = value; }
+            }
+
+            /// <summary>The layer to which this channel belongs</summary>
+            public Layer Layer
+            {
+                get { return m_layer; }
+            }
+
+            #endregion Properties
+
+            #region Methods
+
+            #region Public Methods
 
             public void Save(BinaryReverseWriter writer)
             {
-                Debug.WriteLine("BlendingRanges Save started at " + writer.BaseStream.Position);
+                Debug.WriteLine("BlendingRanges Save started at " + writer.BaseStream.Position.ToString());
 
-                writer.Write((uint) Data.Length);
-                writer.Write(Data);
+                writer.Write((uint)m_data.Length);
+                writer.Write(m_data);
             }
+
+            #endregion Public Methods
+
+            #endregion Methods
         }
 
         public class Channel
         {
+            #region Fields
+
+            private byte[] m_data;
+
+            /// <summary>The raw image data from the channel.</summary>
+            public byte[] m_imageData;
+
+            private ImageCompression m_imageCompression;
+
+            /// <summary>The length of the compressed channel data.</summary>
+            public int Length;
+
+            private Layer m_layer;
+
+            private short m_id;
+
+            #endregion Fields
+
+            #region Constructors
+
+            internal Channel(short id, Layer layer)
+            {
+                m_id = id;
+                m_layer = layer;
+                m_layer.Channels.Add(this);
+                m_layer.SortedChannels.Add(this.ID, this);
+            }
+
+            internal Channel(BinaryReverseReader reader, Layer layer)
+            {
+                Debug.WriteLine("Channel started at " + reader.BaseStream.Position.ToString());
+
+                m_id = reader.ReadInt16();
+                Length = reader.ReadInt32();
+
+                m_layer = layer;
+            }
+
+            #endregion Constructors
+
+            #region Properties
+
             public BinaryReverseReader DataReader
             {
                 get
                 {
-                    if (Data == null)
+                    if (m_data == null)
                         return null;
 
-                    return new BinaryReverseReader(new MemoryStream(Data));
+                    return new BinaryReverseReader(new System.IO.MemoryStream(this.m_data));
                 }
             }
 
-            /// <summary>The length of the compressed channel data.</summary>
-            public int Length { get; set; }
-
             /// <summary>
-            /// The compressed raw channel data.
+            /// The compressed raw channel data
             /// </summary>
-            public byte[] Data { get; set; }
+            public byte[] Data
+            {
+                get { return m_data; }
+                set { m_data = value; }
+            }
 
-            /// <summary>
-            /// The raw channel image data.
-            /// </summary>
-            public byte[] ImageData { get; set; }
+            public byte[] ImageData
+            {
+                get { return m_imageData; }
+                set { m_imageData = value; }
+            }
 
-            public ImageCompression Compression { get; set; }
+            public ImageCompression ImageCompression
+            {
+                get { return m_imageCompression; }
+                set { m_imageCompression = value; }
+            }
 
             /// <summary>
             /// The layer to which this channel belongs
             /// </summary>
-            public Layer Layer { get; private set; }
+            public Layer Layer
+            {
+                get { return m_layer; }
+            }
 
             /// <summary>
             /// 0 = red, 1 = green, etc.
             /// Â–1 = transparency mask
             /// Â–2 = user supplied layer mask
             /// </summary>
-            public short Id { get; set; }
-
-            internal Channel(short id, Layer layer)
+            public short ID
             {
-                Id = id;
-                Layer = layer;
-                Layer.Channels.Add(this);
-                Layer.SortedChannels.Add(Id, this);
+                get { return m_id; }
+                set { m_id = value; }
             }
 
-            internal Channel(BinaryReverseReader reader, Layer layer)
-            {
-                Debug.WriteLine("Channel started at " + reader.BaseStream.Position);
+            #endregion Properties
 
-                Id = reader.ReadInt16();
-                Length = reader.ReadInt32();
-            }
+            #region Methods
+
+            #region Internal Methods
 
             internal void LoadPixelData(BinaryReverseReader reader)
             {
-                Debug.WriteLine("Channel.LoadPixelData started at " + reader.BaseStream.Position);
+                Debug.WriteLine("Channel.LoadPixelData started at " + reader.BaseStream.Position.ToString());
 
-                Data = reader.ReadBytes(Length);
+                m_data = reader.ReadBytes((int)Length);
 
                 using (BinaryReverseReader readerImg = DataReader)
                 {
-                    Compression = (ImageCompression) readerImg.ReadInt16();
+                    m_imageCompression = (ImageCompression)readerImg.ReadInt16();
 
                     int bytesPerRow = 0;
 
-                    switch (Layer.PsdFile.Depth)
+                    switch (m_layer.PsdFile.Depth)
                     {
                         case 1:
-                            bytesPerRow = Layer.rect.Width; // NOT Sure
+                            bytesPerRow = m_layer.m_rect.Width;//NOT Shure
                             break;
                         case 8:
-                            bytesPerRow = Layer.rect.Width;
+                            bytesPerRow = m_layer.m_rect.Width;
                             break;
                         case 16:
-                            bytesPerRow = Layer.rect.Width * 2;
+                            bytesPerRow = m_layer.m_rect.Width * 2;
                             break;
                     }
 
-                    ImageData = new byte[Layer.rect.Height * bytesPerRow];
+                    m_imageData = new byte[m_layer.m_rect.Height * bytesPerRow];
 
-                    switch (Compression)
+                    switch (m_imageCompression)
                     {
                         case ImageCompression.Raw:
-
-                            readerImg.Read(ImageData, 0, ImageData.Length);
+                            readerImg.Read(m_imageData, 0, m_imageData.Length);
                             break;
-
                         case ImageCompression.Rle:
-                        
-                            int[] rowLenghtList = new int[Layer.rect.Height];
-                            for (int i = 0; i < rowLenghtList.Length; i++)
-                                rowLenghtList[i] = readerImg.ReadInt16();
-
-                            for (int i = 0; i < Layer.rect.Height; i++)
                             {
-                                int rowIndex = i * Layer.rect.Width;
-                                RleUtility.DecodedRow(readerImg.BaseStream, ImageData, rowIndex, bytesPerRow);
+                                int[] rowLenghtList = new int[m_layer.m_rect.Height];
+                                for (int i = 0; i < rowLenghtList.Length; i++)
+                                    rowLenghtList[i] = readerImg.ReadInt16();
+
+                                for (int i = 0; i < m_layer.m_rect.Height; i++)
+                                {
+                                    int rowIndex = i * m_layer.m_rect.Width;
+                                    RleHelper.DecodedRow(readerImg.BaseStream, m_imageData, rowIndex, bytesPerRow);
+
+                                    //if (rowLenghtList[i] % 2 == 1)
+                                    //    readerImg.ReadByte();
+                                }
                             }
-                        
+                            break;
+                        default:
                             break;
                     }
                 }
@@ -501,9 +661,9 @@ namespace PsdSharp
 
             internal void Save(BinaryReverseWriter writer)
             {
-                Debug.WriteLine("Channel Save started at " + writer.BaseStream.Position);
+                Debug.WriteLine("Channel Save started at " + writer.BaseStream.Position.ToString());
 
-                writer.Write(Id);
+                writer.Write(m_id);
 
                 CompressImageData();
 
@@ -512,16 +672,19 @@ namespace PsdSharp
 
             internal void SavePixelData(BinaryReverseWriter writer)
             {
-                Debug.WriteLine("Channel SavePixelData started at " + writer.BaseStream.Position);
+                Debug.WriteLine("Channel SavePixelData started at " + writer.BaseStream.Position.ToString());
 
-                writer.Write((short) Compression);
-                writer.Write(ImageData);
+                writer.Write((short)m_imageCompression);
+                writer.Write(m_imageData);
             }
 
+            #endregion Internal Methods
+
+            #region Private Methods
 
             private void CompressImageData()
             {
-                if (Compression == ImageCompression.Rle)
+                if (m_imageCompression == ImageCompression.Rle)
                 {
                     MemoryStream dataStream = new MemoryStream();
                     BinaryReverseWriter writer = new BinaryReverseWriter(dataStream);
@@ -530,13 +693,13 @@ namespace PsdSharp
                     // the position
                     long lengthPosition = writer.BaseStream.Position;
 
-                    int[] rleRowLenghs = new int[Layer.rect.Height];
+                    int[] rleRowLenghs = new int[m_layer.m_rect.Height];
 
-                    if (Compression == ImageCompression.Rle)
+                    if (m_imageCompression == ImageCompression.Rle)
                     {
                         for (int i = 0; i < rleRowLenghs.Length; i++)
                         {
-                            writer.Write((short) 0x1234);
+                            writer.Write((short)0x1234);
                         }
                     }
 
@@ -544,26 +707,25 @@ namespace PsdSharp
 
                     int bytesPerRow = 0;
 
-                    switch (Layer.PsdFile.Depth)
+                    switch (m_layer.PsdFile.Depth)
                     {
                         case 1:
-                            bytesPerRow = Layer.rect.Width; // NOT Sure
+                            bytesPerRow = m_layer.m_rect.Width;//NOT Shure
                             break;
                         case 8:
-                            bytesPerRow = Layer.rect.Width;
+                            bytesPerRow = m_layer.m_rect.Width;
                             break;
                         case 16:
-                            bytesPerRow = Layer.rect.Width * 2;
+                            bytesPerRow = m_layer.m_rect.Width * 2;
                             break;
                     }
 
                     //---------------------------------------------------------------
 
-                    for (int row = 0; row < Layer.rect.Height; row++)
+                    for (int row = 0; row < m_layer.m_rect.Height; row++)
                     {
-                        int rowIndex = row * Layer.rect.Width;
-                        rleRowLenghs[row] = RleUtility.EncodedRow(writer.BaseStream, ImageData, rowIndex,
-                                                                 bytesPerRow);
+                        int rowIndex = row * m_layer.m_rect.Width;
+                        rleRowLenghs[row] = RleHelper.EncodedRow(writer.BaseStream, m_imageData, rowIndex, bytesPerRow);
                     }
 
                     //---------------------------------------------------------------
@@ -574,39 +736,62 @@ namespace PsdSharp
 
                     for (int i = 0; i < rleRowLenghs.Length; i++)
                     {
-                        writer.Write((short) rleRowLenghs[i]);
+                        writer.Write((short)rleRowLenghs[i]);
                     }
 
                     writer.BaseStream.Position = endPosition;
 
                     dataStream.Close();
 
-                    Data = dataStream.ToArray();
+                    m_data = dataStream.ToArray();
 
                     dataStream.Dispose();
                 }
                 else
                 {
-                    Data = (byte[]) ImageData.Clone();
+                    m_data = (byte[])m_imageData.Clone();
                 }
             }
+
+            #endregion Private Methods
+
+            #endregion Methods
         }
 
         public class Mask
         {
-            private BitVector32 flags;
+            #region Fields
 
-            private static int isPositionRelativeBit = BitVector32.CreateMask();
-            private static int disabledBit = BitVector32.CreateMask(isPositionRelativeBit);
-            private static int invertOnBlendBit = BitVector32.CreateMask(disabledBit);
+            private BitVector32 m_flags = new BitVector32();
 
-            private Rectangle rect = Rectangle.Empty;
+            private byte m_defaultColor;
+
+            //////////////////////////////////////////////////////////////////
+
+            /// <summary>
+            /// The raw image data from the channel.
+            /// </summary>
+            public byte[] m_imageData;
+
+            private static int m_disabledBit = BitVector32.CreateMask(m_positionIsRelativeBit);
+
+            private static int m_invertOnBlendBit = BitVector32.CreateMask(m_disabledBit);
+
+            private static int m_positionIsRelativeBit = BitVector32.CreateMask();
+
+            private Layer m_layer;
+
+            private Rectangle m_rect = Rectangle.Empty;
+
+            #endregion Fields
+
+            #region Constructors
 
             internal Mask(BinaryReverseReader reader, Layer layer)
             {
-                Debug.WriteLine("Mask started at " + reader.BaseStream.Position);
+                Debug.WriteLine("Mask started at " + reader.BaseStream.Position.ToString());
 
-                Layer = layer;
+                m_layer = layer;
 
                 uint maskLength = reader.ReadUInt32();
 
@@ -617,18 +802,18 @@ namespace PsdSharp
 
                 //-----------------------------------------------------------------------
 
-                rect = new Rectangle();
-                rect.Y = reader.ReadInt32();
-                rect.X = reader.ReadInt32();
-                rect.Height = reader.ReadInt32() - rect.Y;
-                rect.Width = reader.ReadInt32() - rect.X;
+                m_rect = new Rectangle();
+                m_rect.Y = reader.ReadInt32();
+                m_rect.X = reader.ReadInt32();
+                m_rect.Height = reader.ReadInt32() - m_rect.Y;
+                m_rect.Width = reader.ReadInt32() - m_rect.X;
 
-                DefaultColor = reader.ReadByte();
+                m_defaultColor = reader.ReadByte();
 
                 //-----------------------------------------------------------------------
 
-                byte maskFlags = reader.ReadByte();
-                flags = new BitVector32(maskFlags);
+                byte flags = reader.ReadByte();
+                m_flags = new BitVector32(flags);
 
                 //-----------------------------------------------------------------------
 
@@ -638,11 +823,11 @@ namespace PsdSharp
 
                     byte realUserMaskBackground = reader.ReadByte();
 
-                    rect = new Rectangle();
+                    Rectangle rect = new Rectangle();
                     rect.Y = reader.ReadInt32();
                     rect.X = reader.ReadInt32();
-                    rect.Height = reader.ReadInt32() - rect.Y;
-                    rect.Width = reader.ReadInt32() - rect.X;
+                    rect.Height = reader.ReadInt32() - m_rect.Y;
+                    rect.Width = reader.ReadInt32() - m_rect.X;
                 }
 
                 // there is other stuff following, but we will ignore this.
@@ -651,152 +836,187 @@ namespace PsdSharp
 
             internal Mask(Layer layer)
             {
-                Layer = layer;
-                layer.MaskData = this;
+                m_layer = layer;
+                m_layer.MaskData = this;
             }
+
+            #endregion Constructors
+
+            #region Properties
 
             public bool Disabled
             {
-                get { return flags[disabledBit]; }
-                set { flags[disabledBit] = value; }
+                get { return m_flags[m_disabledBit]; }
+                set { m_flags[m_disabledBit] = value; }
             }
 
             /// <summary>
             /// if true, invert the mask when blending.
             /// </summary>
-            public bool InvertOnBlend
+            public bool InvertOnBlendBit
             {
-                get { return flags[invertOnBlendBit]; }
-                set { flags[invertOnBlendBit] = value; }
+                get { return m_flags[m_invertOnBlendBit]; }
+                set { m_flags[m_invertOnBlendBit] = value; }
             }
 
             /// <summary>
             /// If true, the position of the mask is relative to the layer.
             /// </summary>
-            public bool IsPositionRelative
+            public bool PositionIsRelative
             {
-                get { return flags[isPositionRelativeBit]; }
-                set { flags[isPositionRelativeBit] = value; }
+                get
+                {
+                    return m_flags[m_positionIsRelativeBit];
+                }
+                set
+                {
+                    m_flags[m_positionIsRelativeBit] = value;
+                }
+            }
+
+            public byte DefaultColor
+            {
+                get { return m_defaultColor; }
+                set { m_defaultColor = value; }
+            }
+
+            public byte[] ImageData
+            {
+                get { return m_imageData; }
+                set { m_imageData = value; }
             }
 
             /// <summary>
-            /// The raw image data from the channel.
+            /// The layer to which this mask belongs
             /// </summary>
-            public byte[] ImageData { get; set; }
-
-            public byte DefaultColor { get; set; }
-
-            /// <summary>
-            /// The layer to which this mask belongs.
-            /// </summary>
-            public Layer Layer { get; private set; }
+            public Layer Layer
+            {
+                get { return m_layer; }
+            }
 
             /// <summary>
             /// The rectangle enclosing the mask.
             /// </summary>
             public Rectangle Rect
             {
-                get { return rect; }
-
-                set { rect = value; }
+                get { return m_rect; }
+                set { m_rect = value; }
             }
+
+            #endregion Properties
+
+            #region Methods
+
+            #region Public Methods
+
+            ///////////////////////////////////////////////////////////////////////////
 
             public void Save(BinaryReverseWriter writer)
             {
-                Debug.WriteLine("Mask Save started at " + writer.BaseStream.Position);
+                Debug.WriteLine("Mask Save started at " + writer.BaseStream.Position.ToString());
 
-                if (rect.IsEmpty)
+                if (m_rect.IsEmpty)
                 {
-                    writer.Write((uint) 0);
+                    writer.Write((uint)0);
                     return;
                 }
 
                 using (new LengthWriter(writer))
                 {
-                    writer.Write(rect.Top);
-                    writer.Write(rect.Left);
-                    writer.Write(rect.Bottom);
-                    writer.Write(rect.Right);
+                    writer.Write(m_rect.Top);
+                    writer.Write(m_rect.Left);
+                    writer.Write(m_rect.Bottom);
+                    writer.Write(m_rect.Right);
 
-                    writer.Write(DefaultColor);
+                    writer.Write(m_defaultColor);
 
-                    writer.Write((byte) flags.Data);
+                    writer.Write((byte)m_flags.Data);
 
                     // padding 2 bytes so that size is 20
-                    writer.Write(0);
+                    writer.Write((int)0);
                 }
             }
 
+            #endregion Public Methods
+
+            #region Internal Methods
 
             internal void LoadPixelData(BinaryReverseReader reader)
             {
-                Debug.WriteLine("Mask.LoadPixelData started at " + reader.BaseStream.Position);
+                Debug.WriteLine("Mask.LoadPixelData started at " + reader.BaseStream.Position.ToString());
 
-                if (rect.IsEmpty || Layer.SortedChannels.ContainsKey(-2) == false)
+                if (m_rect.IsEmpty || m_layer.SortedChannels.ContainsKey(-2) == false)
                     return;
 
-                Channel maskChannel = Layer.SortedChannels[-2];
+                Channel maskChannel = m_layer.SortedChannels[-2];
 
-                maskChannel.Data = reader.ReadBytes(maskChannel.Length);
+                maskChannel.Data = reader.ReadBytes((int)maskChannel.Length);
 
                 using (BinaryReverseReader readerImg = maskChannel.DataReader)
                 {
-                    maskChannel.Compression = (ImageCompression) readerImg.ReadInt16();
+                    maskChannel.ImageCompression = (ImageCompression)readerImg.ReadInt16();
 
                     int bytesPerRow = 0;
 
-                    switch (Layer.PsdFile.Depth)
+                    switch (m_layer.PsdFile.Depth)
                     {
                         case 1:
-                            bytesPerRow = rect.Width; // NOT Sure
+                            bytesPerRow = m_rect.Width;//NOT Shure
                             break;
                         case 8:
-                            bytesPerRow = rect.Width;
+                            bytesPerRow = m_rect.Width;
                             break;
                         case 16:
-                            bytesPerRow = rect.Width * 2;
+                            bytesPerRow = m_rect.Width * 2;
                             break;
                     }
 
-                    maskChannel.ImageData = new byte[rect.Height * bytesPerRow];
+                    maskChannel.ImageData = new byte[m_rect.Height * bytesPerRow];
                     // Fill Array
                     for (int i = 0; i < maskChannel.ImageData.Length; i++)
                     {
                         maskChannel.ImageData[i] = 0xAB;
                     }
 
-                    ImageData = (byte[]) maskChannel.ImageData.Clone();
+                    m_imageData = (byte[])maskChannel.ImageData.Clone();
 
-                    switch (maskChannel.Compression)
+                    switch (maskChannel.ImageCompression)
                     {
                         case ImageCompression.Raw:
                             readerImg.Read(maskChannel.ImageData, 0, maskChannel.ImageData.Length);
                             break;
                         case ImageCompression.Rle:
-                        {
-                            int[] rowLenghtList = new int[rect.Height];
-
-                            for (int i = 0; i < rowLenghtList.Length; i++)
-                                rowLenghtList[i] = readerImg.ReadInt16();
-
-                            for (int i = 0; i < rect.Height; i++)
                             {
-                                int rowIndex = i * rect.Width;
-                                RleUtility.DecodedRow(readerImg.BaseStream, maskChannel.ImageData, rowIndex,
-                                                     bytesPerRow);
+                                int[] rowLenghtList = new int[m_rect.Height];
+
+                                for (int i = 0; i < rowLenghtList.Length; i++)
+                                    rowLenghtList[i] = readerImg.ReadInt16();
+
+                                for (int i = 0; i < m_rect.Height; i++)
+                                {
+                                    int rowIndex = i * m_rect.Width;
+                                    RleHelper.DecodedRow(readerImg.BaseStream, maskChannel.ImageData, rowIndex, bytesPerRow);
+                                }
                             }
-                        }
+                            break;
+                        default:
                             break;
                     }
 
-                    ImageData = (byte[]) maskChannel.ImageData.Clone();
+                    m_imageData = (byte[])maskChannel.ImageData.Clone();
                 }
             }
 
             internal void SavePixelData(BinaryReverseWriter writer)
             {
-                //writer.Write(data);
+                //writer.Write(m_data);
             }
+
+            #endregion Internal Methods
+
+            #endregion Methods
         }
+
+        #endregion Nested Classes
     }
 }

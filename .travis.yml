@@ -1,2 +1,6 @@
 language: csharp
 solution: PsdSharp.sln
+
+script:
+  - xbuild /p:Configuration=Release PsdSharp.sln
+  - mono ./testrunner/xunit.runners.*/tools/xunit.console.exe ./tests/PsdSharp.Tests/bin/Release/PsdSharp.Tests.dll

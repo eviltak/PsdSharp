@@ -26,47 +26,62 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace PsdSharp
+namespace PsdSharp.ImageResources
 {
     /// <summary>The names of the alpha channels</summary>
     public class AlphaChannels : ImageResource
     {
-        private List<string> channelNames = new List<string>();
+        #region Fields
 
+        private List<string> m_channelNames = new List<string>();
+
+        #endregion Fields
+
+        #region Constructors
 
         public AlphaChannels(ImageResource imgRes)
             : base(imgRes)
         {
             BinaryReverseReader reader = imgRes.DataReader;
             // the names are pascal strings without padding!!!
-            while (reader.BaseStream.Length - reader.BaseStream.Position > 0)
+            while ((reader.BaseStream.Length - reader.BaseStream.Position) > 0)
             {
                 byte stringLength = reader.ReadByte();
                 string s = new string(reader.ReadChars(stringLength));
                 if (s.Length > 0)
-                    channelNames.Add(s);
+                    m_channelNames.Add(s);
             }
             reader.Close();
         }
 
         public AlphaChannels()
-            : base((short) ResourceIDs.AlphaChannelNames)
+            : base((short)ResourceIDs.AlphaChannelNames)
+        { }
+
+        #endregion Constructors
+
+        #region Properties
+
+        public IList<string> ChannelNames
         {
+            get { return m_channelNames; }
         }
 
+        #endregion Properties
 
-        public IList<string> ChannelNames => channelNames;
+        #region Methods
 
+        #region Protected Methods
 
         protected override void StoreData()
         {
-            using (MemoryStream stream = new MemoryStream())
+            using (var stream = new MemoryStream())
             {
-                using (BinaryReverseWriter writer = new BinaryReverseWriter(stream))
+                using (var writer = new BinaryReverseWriter(stream))
                 {
-                    foreach (string name in channelNames)
+                    foreach (string name in m_channelNames)
                     {
-                        writer.Write((byte) name.Length);
+                        writer.Write((byte)name.Length);
                         writer.Write(name.ToCharArray());
                     }
 
@@ -74,5 +89,9 @@ namespace PsdSharp
                 }
             }
         }
+
+        #endregion Protected Methods
+
+        #endregion Methods
     }
 }

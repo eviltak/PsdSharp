@@ -31,10 +31,19 @@
 
 /////////////////////////////////////////////////////////////////////////////////
 
-namespace PsdSharp
+using System.IO;
+
+namespace PsdSharp.ImageResources
 {
     public class Thumbnail : ImageResource
     {
+        private byte[] imgData;
+
+        #region Fields
+        #endregion Fields
+
+        #region Constructors
+
         public Thumbnail(ImageResource imgRes)
             : base(imgRes)
         {
@@ -51,9 +60,28 @@ namespace PsdSharp
 
                 if (format == 1)
                 {
-                    byte[] imgData = reader.ReadBytes((int) (reader.BaseStream.Length - reader.BaseStream.Position));
+                    imgData = reader.ReadBytes((int)(reader.BaseStream.Length - reader.BaseStream.Position));
+
+                    if (this.ID == 1033)
+                    {
+                        //// BGR
+                        //for(int y=0;y<m_thumbnailImage.Height;y++)
+                        //  for (int x = 0; x < m_thumbnailImage.Width; x++)
+                        //  {
+                        //    Color c=m_thumbnailImage.GetPixel(x,y);
+                        //    Color c2=Color.FromArgb(c.B, c.G, c.R);
+                        //    m_thumbnailImage.SetPixel(x, y, c);
+                        //  }
+                    }
                 }
             }
         }
+
+        #endregion Constructors
+
+        #region Properties
+
+        #endregion Properties
     }
 }
+
