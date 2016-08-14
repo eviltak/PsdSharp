@@ -23,7 +23,7 @@
             if (!(obj is Rectangle))
                 return false;
 
-            Rectangle comp = (Rectangle)obj;
+            Rectangle comp = (Rectangle) obj;
 
             return comp == this;
         }

@@ -3,6 +3,9 @@ using System.IO;
 
 namespace PsdSharp.IO
 {
+    /// <summary>
+    /// Reads values stored in big endian from the given stream.
+    /// </summary>
     internal class BigEndianBinaryReader : BinaryReader
     {
         public BigEndianBinaryReader(Stream input)
@@ -49,12 +52,18 @@ namespace PsdSharp.IO
         public string ReadPascalString()
         {
             byte stringLength = ReadByte();
-
             char[] c = ReadChars(stringLength);
 
-            if ((stringLength % 2) == 0) ReadByte();
-
             return new string(c);
+        }
+
+        public string ReadPaddedPascalString()
+        {
+            string s = ReadPascalString();
+
+            if (s.Length % 2 == 0) ReadByte();
+
+            return s;
         }
     }
 }
