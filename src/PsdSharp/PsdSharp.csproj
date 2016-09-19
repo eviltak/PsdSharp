@@ -32,14 +32,17 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BinaryReverseReader.cs" />
-    <Compile Include="ImageResource.cs" />
-    <Compile Include="ImageResources\AlphaChannels.cs" />
-    <Compile Include="ImageResources\ResolutionInfo.cs" />
-    <Compile Include="ImageResources\Thumbnail.cs" />
-    <Compile Include="Layer.cs" />
+    <Compile Include="Enums\DocumentColorMode.cs" />
+    <Compile Include="Enums\ImageResourceId.cs" />
+    <Compile Include="Internal\Factory\PsdDocumentFactory.cs" />
+    <Compile Include="ImageResources\ImageResource.cs" />
+    <Compile Include="Internal\Constants.cs" />
+    <Compile Include="Internal\Utility.cs" />
+    <Compile Include="IO\BigEndianBinaryReader.cs" />
+    <Compile Include="Layers\Channel.cs" />
+    <Compile Include="Layers\Layer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="PsdFile.cs" />
+    <Compile Include="PsdDocument.cs" />
     <Compile Include="Rectangle.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
