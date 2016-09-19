@@ -15,10 +15,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using PsdSharp.ImageResources;
 using PsdSharp.Internal;
-using PsdSharp.IO;
+using PsdSharp.Internal.Factory;
+using PsdSharp.Layers;
 
 namespace PsdSharp
 {
@@ -82,99 +82,11 @@ namespace PsdSharp
             }
         }
 
-        public static PsdDocument Load(Stream stream)
+        public List<Layer> Layers { get; set; }
+
+        public static PsdDocument Load(string fileName)
         {
-            PsdDocument psdDocument = new PsdDocument();
-
-            BigEndianBinaryReader reader = new BigEndianBinaryReader(stream);
-
-            ReadFileHeader(psdDocument, reader);
-
-            ReadColorModeData(psdDocument, reader);
-
-            ReadImageResources(psdDocument, reader);
-
-            return psdDocument;
-        }
-
-        private static void ReadImageResources(PsdDocument psdDocument, BigEndianBinaryReader reader)
-        {
-            int imageResourceSectionLength = reader.ReadInt32();
-
-            psdDocument.ImageResources = new Dictionary<ImageResourceId, ImageResource>();
-
-            long startPosition = reader.BaseStream.Position;
-
-            while (reader.BaseStream.Position - startPosition < imageResourceSectionLength)
-            {
-                // Read an image resource
-
-                string signature = new string(reader.ReadChars(4));
-
-                if (!signature.Equals(Constants.ImageResourceSignature))
-                    throw new IOException("Invalid image resource.");
-
-                ImageResourceId id = (ImageResourceId) reader.ReadInt16();
-
-                string name = reader.ReadPaddedPascalString();
-
-                int dataLength = reader.ReadInt32();
-                // If odd, pad to make it even
-                dataLength += dataLength % 2;
-
-                byte[] data = reader.ReadBytes(dataLength);
-
-                ImageResource imageResource = new ImageResource(psdDocument, id, name, data);
-                psdDocument.ImageResources[id] = imageResource;
-            }
-        }
-
-        private static void ReadColorModeData(PsdDocument psdDocument, BigEndianBinaryReader reader)
-        {
-            // If ColorMode is DocumentColorMode.Indexed or DocumentColorMode.Duotone
-            // length > 0
-            int length = reader.ReadInt32();
-
-            // If ColorMode is DocumentColorMode.Indexed, then the following 768 bytes contain
-            // the non-interleaved color table for the image.
-            psdDocument.ColorModeData = reader.ReadBytes(length);
-        }
-
-        private static void ReadFileHeader(PsdDocument psdDocument, BigEndianBinaryReader reader)
-        {
-            // TODO: Store version and signature as properties?
-
-            string signature = new string(reader.ReadChars(4));
-
-            if (!signature.Equals(Constants.FileSignature))
-                throw new IOException("Supplied file is not a valid Photoshop file.");
-
-            int version = reader.ReadInt16();
-
-            // Version of file must be 1
-            // TODO: Add support for PSB (For PSBs version will be 2)
-            if (version != 1)
-                throw new IOException("Unsupported file version.");
-
-            // 6 bytes reserved, skip
-            reader.BaseStream.Position += 6;
-
-            psdDocument.ChannelCount = reader.ReadInt16();
-
-            psdDocument.Height = reader.ReadInt32();
-            psdDocument.Width = reader.ReadInt32();
-
-            psdDocument.Depth = reader.ReadInt16();
-
-            psdDocument.ColorMode = (DocumentColorMode) reader.ReadInt16();
-        }
-
-        public static PsdDocument Load(string filePath)
-        {
-            using (Stream stream = File.OpenRead(filePath))
-            {
-                return Load(stream);
-            }
+            return PsdDocumentFactory.Load(fileName);
         }
     }
 }

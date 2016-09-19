@@ -15,6 +15,7 @@
 
 namespace PsdSharp
 {
+    // TODO: Add more required Image Resources like Thumbnails
     public enum ImageResourceId : short
     {
         ResolutionInfo = 1005,

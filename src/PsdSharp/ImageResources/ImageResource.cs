@@ -13,6 +13,11 @@
 // 
 // Include the MIT License NO WARRANTY clause here.
 
+using System.IO;
+using PsdSharp.Internal;
+using PsdSharp.Internal.Factory;
+using PsdSharp.IO;
+
 namespace PsdSharp.ImageResources
 {
     public class ImageResource
@@ -24,6 +29,11 @@ namespace PsdSharp.ImageResources
 
         public string Name { get; set; }
 
+        private ImageResource(ImageResourceId id, string name, byte[] data)
+            : this(null, id, name, data)
+        {
+        }
+
         internal ImageResource(PsdDocument document, ImageResourceId id, string name, byte[] data)
         {
             this.document = document;
@@ -31,5 +41,36 @@ namespace PsdSharp.ImageResources
             Id = id;
             Name = name;
         }
+
+        internal static ImageResource Load(BigEndianBinaryReader reader)
+        {
+            // Read an image resource
+
+            string signature = new string(reader.ReadChars(4));
+
+            if (!signature.Equals(Constants.ImageResourceSignature))
+                throw new IOException("Invalid image resource.");
+
+            ImageResourceId id = (ImageResourceId)reader.ReadInt16();
+
+            string name = reader.ReadPaddedPascalString();
+
+            int dataLength = reader.ReadInt32();
+            // If odd, pad to make it even
+            dataLength += dataLength % 2;
+
+            byte[] data = reader.ReadBytes(dataLength);
+
+            ImageResource imageResource = new ImageResource(id, name, data);
+
+            return imageResource;
+        }
+
+        internal static void LoadIntoDocument(PsdDocument psdDocument, BigEndianBinaryReader reader)
+        {
+            ImageResource imageResource = ImageResource.Load(reader);
+            psdDocument.ImageResources[imageResource.Id] = imageResource;
+        }
+
     }
 }

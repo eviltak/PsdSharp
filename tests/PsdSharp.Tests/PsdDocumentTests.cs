@@ -13,6 +13,7 @@
 // 
 // Include the MIT License NO WARRANTY clause here.
 
+using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -37,7 +38,8 @@ namespace PsdSharp.Tests
 
             Assert.True(psdDocument.ImageResources.ContainsKey(ImageResourceId.LayerGroups));
 
-            output.WriteLine(psdDocument.ImageResources[ImageResourceId.LayerGroups].data.Length.ToString());
+            output.WriteLine(string.Join(" ",
+                psdDocument.ImageResources[ImageResourceId.LayerGroups].data.Select(b => b.ToString())));
         }
     }
 }
