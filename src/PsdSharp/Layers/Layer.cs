@@ -33,6 +33,7 @@ namespace PsdSharp.Layers
         internal static void LoadIntoDocument(PsdDocument psdDocument, BigEndianBinaryReader reader)
         {
             Layer layer = Load(reader);
+            psdDocument.Layers.Add(layer);
         }
 
         internal static Layer Load(BigEndianBinaryReader reader)
@@ -45,12 +46,12 @@ namespace PsdSharp.Layers
             // Next two bytes contain number of channels
             layer.Channels = new List<Channel>(reader.ReadInt16());
 
-            for (int i = 0; i < layer.Channels.Count; i++)
-                layer.Channels[i] = Channel.Load(reader);
+            for (int i = 0; i < layer.Channels.Capacity; i++)
+                layer.Channels.Add(Channel.Load(reader));
 
             string blendModeSignature = new string(reader.ReadChars(4));
 
-            if (!blendModeSignature.Equals(Constants.ImageResourceSignature))
+            if (!blendModeSignature.Equals(Constants.BlendModeSignature))
                 throw new IOException("Invalid blend mode.");
 
             // TODO: Use enum instead
@@ -58,9 +59,25 @@ namespace PsdSharp.Layers
 
             layer.Opacity = reader.ReadByte();
 
-            
+            layer.Clipping = reader.ReadByte();
+
+            layer.Flags = reader.ReadByte();
+
+            // Filler
+            reader.BaseStream.Position += 1;
+
+            int extraDataLength = reader.ReadInt32();
+            long startPosition = reader.BaseStream.Position;
+
+            // TODO: Read extra data
+
+            reader.BaseStream.Position = startPosition + extraDataLength;
 
             return layer;
         }
+
+        public byte Flags { get; set; }
+
+        public byte Clipping { get; set; }
     }
 }

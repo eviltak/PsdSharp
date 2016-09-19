@@ -50,10 +50,10 @@ namespace PsdSharp.Internal.Factory
             uint sectionLength = reader.ReadUInt32();
             long startPosition = reader.BaseStream.Position;
 
-            while (reader.BaseStream.Position - startPosition < sectionLength)
-            {
-                ReadLayers(psdDocument, reader);
-            }
+
+            ReadLayers(psdDocument, reader);
+            // TODO: Read masks
+
 
             // Pad to make sure the next section starts at the correct position
             reader.BaseStream.Position = startPosition + sectionLength;
