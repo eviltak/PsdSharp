@@ -23,7 +23,7 @@ using PsdSharp.Layers;
 
 namespace PsdSharp.Internal.Loaders
 {
-    internal class PsdDocumentLoader
+    internal class PsdDocumentLoader : ILoader<PsdDocument>
     {
         private static void ReadLayers(PsdDocument psdDocument, BigEndianBinaryReader reader)
         {
@@ -136,6 +136,11 @@ namespace PsdSharp.Internal.Loaders
             {
                 return Load(stream);
             }
+        }
+
+        PsdDocument ILoader<PsdDocument>.Load(Stream stream)
+        {
+            return Load(stream);
         }
     }
 }
