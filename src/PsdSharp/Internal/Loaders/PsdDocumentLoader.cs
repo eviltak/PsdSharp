@@ -16,13 +16,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+
 using PsdSharp.ImageResources;
 using PsdSharp.IO;
 using PsdSharp.Layers;
 
-namespace PsdSharp.Internal.Factory
+namespace PsdSharp.Internal.Loaders
 {
-    internal static class PsdDocumentFactory
+    internal class PsdDocumentLoader
     {
         private static void ReadLayers(PsdDocument psdDocument, BigEndianBinaryReader reader)
         {

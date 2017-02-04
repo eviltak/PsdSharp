@@ -34,9 +34,9 @@
   <ItemGroup>
     <Compile Include="Enums\DocumentColorMode.cs" />
     <Compile Include="Enums\ImageResourceId.cs" />
-    <Compile Include="Internal\Factory\PsdDocumentFactory.cs" />
     <Compile Include="ImageResources\ImageResource.cs" />
     <Compile Include="Internal\Constants.cs" />
+    <Compile Include="Internal\Loaders\PsdDocumentLoader.cs" />
     <Compile Include="Internal\Utility.cs" />
     <Compile Include="IO\BigEndianBinaryReader.cs" />
     <Compile Include="Layers\Channel.cs" />

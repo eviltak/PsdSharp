@@ -17,7 +17,7 @@ using System;
 using System.Collections.Generic;
 using PsdSharp.ImageResources;
 using PsdSharp.Internal;
-using PsdSharp.Internal.Factory;
+using PsdSharp.Internal.Loaders;
 using PsdSharp.Layers;
 
 namespace PsdSharp
@@ -86,7 +86,7 @@ namespace PsdSharp
 
         public static PsdDocument Load(string fileName)
         {
-            return PsdDocumentFactory.Load(fileName);
+            return PsdDocumentLoader.Load(fileName);
         }
     }
 }

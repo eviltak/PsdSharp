@@ -15,7 +15,6 @@
 
 using System.IO;
 using PsdSharp.Internal;
-using PsdSharp.Internal.Factory;
 using PsdSharp.IO;
 
 namespace PsdSharp.ImageResources
