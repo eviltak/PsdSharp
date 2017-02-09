@@ -41,7 +41,7 @@ namespace PsdSharp.ImageResources
             Name = name;
         }
 
-        internal static ImageResource Load(BigEndianBinaryReader reader)
+        internal static ImageResource Load(BinaryReader reader)
         {
             // Read an image resource
 
@@ -65,7 +65,7 @@ namespace PsdSharp.ImageResources
             return imageResource;
         }
 
-        internal static void LoadIntoDocument(PsdDocument psdDocument, BigEndianBinaryReader reader)
+        internal static void LoadIntoDocument(PsdDocument psdDocument, BinaryReader reader)
         {
             ImageResource imageResource = ImageResource.Load(reader);
             psdDocument.ImageResources[imageResource.Id] = imageResource;

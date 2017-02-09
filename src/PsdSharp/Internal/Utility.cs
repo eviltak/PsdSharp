@@ -34,7 +34,7 @@ namespace PsdSharp.Internal
         public static void ValidatePropertyRange(int value, int min, int max,
                                                  [CallerMemberName] string propertyName = "")
         {
-            if (value < min || value > max)
+            if (value <= min || value >= max)
                 throw new ArgumentOutOfRangeException(
                     propertyName,
                     $"Value of {propertyName} can only be between (inclusive) {min} and {max}.");

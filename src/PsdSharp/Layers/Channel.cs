@@ -13,6 +13,8 @@
 // 
 // Include the MIT License NO WARRANTY clause here.
 
+using System.IO;
+
 using PsdSharp.IO;
 
 namespace PsdSharp.Layers
@@ -23,7 +25,7 @@ namespace PsdSharp.Layers
 
         public int ImageDataLength { get; set; }
 
-        internal static Channel Load(BigEndianBinaryReader reader)
+        internal static Channel Load(BinaryReader reader)
         {
             Channel channel = new Channel();
 

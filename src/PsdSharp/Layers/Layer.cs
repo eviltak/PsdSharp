@@ -30,13 +30,13 @@ namespace PsdSharp.Layers
 
         public byte Opacity { get; set; }
 
-        internal static void LoadIntoDocument(PsdDocument psdDocument, BigEndianBinaryReader reader)
+        internal static void LoadIntoDocument(PsdDocument psdDocument, BinaryReader reader)
         {
             Layer layer = Load(reader);
             psdDocument.Layers.Add(layer);
         }
 
-        internal static Layer Load(BigEndianBinaryReader reader)
+        internal static Layer Load(BinaryReader reader)
         {
             Layer layer = new Layer();
 

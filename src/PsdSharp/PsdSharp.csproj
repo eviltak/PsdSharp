@@ -40,6 +40,7 @@
     <Compile Include="Internal\Loaders\PsdDocumentLoader.cs" />
     <Compile Include="Internal\Utility.cs" />
     <Compile Include="IO\BigEndianBinaryReader.cs" />
+    <Compile Include="IO\Extensions.cs" />
     <Compile Include="Layers\Channel.cs" />
     <Compile Include="Layers\Layer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

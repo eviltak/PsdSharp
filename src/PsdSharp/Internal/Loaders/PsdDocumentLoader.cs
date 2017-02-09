@@ -25,7 +25,7 @@ namespace PsdSharp.Internal.Loaders
 {
     internal class PsdDocumentLoader : ILoader<PsdDocument>
     {
-        private static void ReadLayers(PsdDocument psdDocument, BigEndianBinaryReader reader)
+        private static void ReadLayers(PsdDocument psdDocument, BinaryReader reader)
         {
             // TODO: Add Support for PSB (length is 8 bytes)
             uint sectionLength = reader.ReadUInt32();
@@ -45,7 +45,7 @@ namespace PsdSharp.Internal.Loaders
             reader.BaseStream.Position = startPosition + sectionLength;
         }
 
-        private static void ReadLayersAndMasks(PsdDocument psdDocument, BigEndianBinaryReader reader)
+        private static void ReadLayersAndMasks(PsdDocument psdDocument, BinaryReader reader)
         {
             // TODO: Add Support for PSB (length is 8 bytes)
             uint sectionLength = reader.ReadUInt32();
@@ -60,7 +60,7 @@ namespace PsdSharp.Internal.Loaders
             reader.BaseStream.Position = startPosition + sectionLength;
         }
 
-        private static void ReadImageResources(PsdDocument psdDocument, BigEndianBinaryReader reader)
+        private static void ReadImageResources(PsdDocument psdDocument, BinaryReader reader)
         {
             uint sectionLength = reader.ReadUInt32();
             long startPosition = reader.BaseStream.Position;
@@ -76,7 +76,7 @@ namespace PsdSharp.Internal.Loaders
             reader.BaseStream.Position = startPosition + sectionLength;
         }
 
-        private static void ReadColorModeData(PsdDocument psdDocument, BigEndianBinaryReader reader)
+        private static void ReadColorModeData(PsdDocument psdDocument, BinaryReader reader)
         {
             // If ColorMode is DocumentColorMode.Indexed or DocumentColorMode.Duotone
             // length > 0
@@ -87,7 +87,7 @@ namespace PsdSharp.Internal.Loaders
             psdDocument.ColorModeData = reader.ReadBytes(length);
         }
 
-        private static void ReadFileHeader(PsdDocument psdDocument, BigEndianBinaryReader reader)
+        private static void ReadFileHeader(PsdDocument psdDocument, BinaryReader reader)
         {
             // TODO: Store version and signature as properties?
 
